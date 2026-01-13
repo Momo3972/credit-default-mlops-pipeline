@@ -1,250 +1,195 @@
-# Credit Default MLOps Pipeline (FastAPI • MLflow • MinIO • Prometheus • Grafana • GitHub Actions)
+# Credit Default MLOps Pipeline
 
-Pipeline MLOps **de bout en bout** pour la prédiction du défaut de paiement :  
-**entraînement → tracking & registry MLflow → API FastAPI dockerisée → monitoring Prometheus/Grafana → CI GitHub Actions (lint/tests/build)**.
+Pipeline MLOps end-to-end pour la prédiction du défaut de paiement, intégrant :
+- entraînement et évaluation du modèle
+- MLflow Tracking et Model Registry
+- API FastAPI containerisée (serving et métriques Prometheus)
+- CI GitHub Actions (format, lint, tests, build Docker)
+- Monitoring Prometheus & Grafana (dashboards auto-provisionnés)
 
-> Objectif portfolio : montrer une stack réaliste, reproductible en local, avec des garde-fous (tests, format/lint, build docker), observabilité et un chemin clair vers la prod.
-
----
-
-## Sommaire
-- [Architecture](#architecture)
-- [Fonctionnalités](#fonctionnalités)
-- [Prérequis](#prérequis)
-- [Démarrage rapide](#démarrage-rapide)
-- [Entraîner et enregistrer un modèle](#entraîner-et-enregistrer-un-modèle)
-- [Servir le modèle via l’API](#servir-le-modèle-via-lapi)
-- [Monitoring (Prometheus & Grafana)](#monitoring-prometheus--grafana)
-- [Tests & Qualité](#tests--qualité)
-- [CI GitHub Actions](#ci-github-actions)
-- [Structure du dépôt](#structure-du-dépôt)
-- [Troubleshooting](#troubleshooting)
-- [Roadmap](#roadmap)
+![CI](https://github.com/Momo3972/credit-default-mlops-pipeline/actions/workflows/ci.yml/badge.svg)
 
 ---
 
-## Architecture
+## Objectif
 
-**Composants**
-- **FastAPI** : service de scoring (`/predict`) + endpoints techniques (`/health`, `/meta`, `/metrics`, `/boom`).
-- **MLflow Tracking + Model Registry** : suivi d’expériences + versioning du modèle.
-- **MinIO (S3)** : stockage des artefacts MLflow.
-- **Postgres** : backend store MLflow.
-- **Prometheus** : scraping des métriques HTTP exposées par l’API.
-- **Grafana** : dashboard prêt à l’emploi via provisioning (datasource UID stable + dashboard JSON chargé au démarrage).
-- **GitHub Actions** : `ruff format/check`, `pytest`, build de l’image Docker.
-
-**Flux**
-1. `train.py` entraîne un modèle, log en MLflow, et pousse un modèle versionné.
-2. Le modèle est référencé par **alias** (ex: `@production`) côté API : `MODEL_URI=models:/credit-default-model@production`.
-3. L’API expose des métriques Prometheus (`/metrics`).
-4. Prometheus scrape `http://api:8000/metrics`.
-5. Grafana affiche RPS, latence p95, ratio 2xx/4xx/5xx.
+Montrer un système MLOps production-ready couvrant tout le cycle de vie :
+- *data → entraînement → tracking → registry*
+- *déploiement API*
+- *observabilité (SLO/latence/erreurs)*
+- *qualité (lint/tests) + reproductibilité (Docker Compose)*
 
 ---
 
-## Fonctionnalités
+## Stack et composants
 
-- ✅ Serving FastAPI dockerisé  
-- ✅ Tracking MLflow + artefacts S3 (MinIO) + store Postgres  
-- ✅ Monitoring Prometheus/Grafana avec provisioning (reproductible)  
-- ✅ Tests unitaires + test d’intégration (marqueur `integration`)  
-- ✅ Lint/format Ruff + CI (GitHub Actions)  
-- ✅ Endpoint “boom” pour simuler des erreurs 500 et valider l’observabilité
+- FastAPI (serving) + `prometheus-fastapi-instrumentator` → métriques sur `GET /metrics`
+- MLflow (v2.10.2) → tracking + registry
+- MinIO (S3) → stockage des artefacts MLflow (`s3://mlflow/`)
+- PostgreSQL → backend store MLflow
+- Prometheus → scrape des métriques API
+- Grafana → dashboard JSON auto-provisionné
+
+Détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ---
 
-## Prérequis
+## Démarrage rapide (stack complète)
 
+### Pré-requis
 - Docker + Docker Compose
-- Python 3.12+ (pour exécuter les scripts localement)
-- (Optionnel) `make`
+- Git
+- (Optionnel) Python 3.12 si tu veux lancer scripts/tests hors Docker
 
----
+### 1) Variables d’environnement
 
-## Démarrage rapide
+Copie le fichier d’exemple (tu peux garder les valeurs par défaut pour un run local) :
 
-### 1) Cloner & config
 ```bash
-git clone <URL_DU_REPO>
-cd credit-default-mlops-pipeline
 cp .env.example .env
 ```
 
-### 2) Lancer la stack principale (MLflow + MinIO + Postgres + API)
+### 2) Lancer la stack (MLflow + MinIO + Postgres + API + Prometheus + Grafana)
+
 ```bash
-docker compose up -d --build
+docker compose up --build
 ```
 
-Endpoints:
-- API docs : `http://localhost:8000/docs`
-- MLflow : `http://localhost:5000`
-- MinIO console : `http://localhost:9001`
+### Services exposés
 
-### 3) Lancer le monitoring (Prometheus + Grafana)
-Si vous avez un fichier séparé `docker-compose.monitoring.yml` :
-```bash
-docker compose -f docker-compose.monitoring.yml up -d
-```
+| Service | URL |
+|---|---|
+| API | http://localhost:8000 |
+| Swagger | http://localhost:8000/docs |
+| MLflow | http://localhost:5000 |
+| MinIO console | http://localhost:9001 |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 |
 
-Sinon, si monitoring est déjà dans `docker-compose.yml` :
-```bash
-docker compose up -d
-```
-
-Dashboards:
-- Grafana : `http://localhost:3000`
-- Prometheus : `http://localhost:9090`
+> Identifiants par défaut Grafana (docker-compose.yml) : `admin / admin`
 
 ---
 
-## Entraîner et enregistrer un modèle
+## API
 
-> Selon votre implémentation actuelle, vous avez `train.py` / `evaluate.py`.  
-Le principe : définir `MLFLOW_TRACKING_URI`, puis lancer l’entraînement.
+### Endpoints utiles
 
-Exemple (si `train.py` utilise MLflow via `MLFLOW_TRACKING_URI`) :
-```bash
-export MLFLOW_TRACKING_URI="http://localhost:5000"
-python train.py
+- `GET /health` → sanity check + `model_uri`
+- `GET /meta` → infos runtime : `threshold`, `n_features_expected`, `git_commit`, `model_version` (si récupérable via MLflow)
+- `POST /predict` → prédiction
+- `GET /metrics` → métriques Prometheus
+- `GET /boom` → endpoint volontairement en 500 (utile pour tester les alertes / taux 5xx)
+
+### Modèle servi
+
+L’API charge un modèle MLflow via :
+
+- **ENV** `MODEL_URI` (prioritaire)
+- sinon `configs/config.yaml` (`mlflow.model_uri`)
+- sinon fallback : `models:/credit-default-model@production`
+
+Dans ce repo, la stack Docker met par défaut :
+
+- `MODEL_URI="models:/credit-default-model/Production"` (stage Production)
+- MLflow tracking : `MLFLOW_TRACKING_URI="http://mlflow:5000"`
+
+### Payload exact — `POST /predict`
+
+- **11 features obligatoires** (`EXPECTED_N_FEATURES = 11`)
+- décision basée sur un seuil : `THRESHOLD = 0.05`
+
+```json
+{
+  "data": {
+    "features": [0.1, 1.2, 0.3, 0.0, 5.1, 2.2, 0.8, 1.0, 0.4, 3.2, 0.9]
+  }
+}
 ```
 
-Ensuite, vérifiez le modèle dans l’UI MLflow (`Models`) et positionnez un alias :
-- Alias attendu par l’API : `@production` (recommandé)
-- Nom attendu : `credit-default-model` (adapter si besoin)
+Réponse :
+
+```json
+{
+  "probability": 0.034,
+  "decision": "ACCEPT",
+  "threshold": 0.05,
+  "model_uri": "models:/credit-default-model@production"
+}
+```
+
+Exemples curl :
+
+```bash
+curl -s http://localhost:8000/health | jq
+
+curl -s http://localhost:8000/meta | jq
+
+curl -s -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"data":{"features":[0.1,1.2,0.3,0.0,5.1,2.2,0.8,1.0,0.4,3.2,0.9]}}' | jq
+```
 
 ---
 
-## Servir le modèle via l’API
+## Qualité, tests & CI
 
-L’API lit `MODEL_URI` (MLflow Model Registry) au démarrage.
+En local (à la racine du repo) :
 
-Exemple `.env` / docker-compose :
-```env
-MODEL_URI=models:/credit-default-model@production
-MLFLOW_TRACKING_URI=http://mlflow:5000
-MLFLOW_S3_ENDPOINT_URL=http://minio:9000
-AWS_ACCESS_KEY_ID=minio
-AWS_SECRET_ACCESS_KEY=minio123
-AWS_DEFAULT_REGION=us-east-1
-AWS_EC2_METADATA_DISABLED=true
-```
-
-### Tester les endpoints
-```bash
-curl -s http://localhost:8000/health
-curl -s http://localhost:8000/meta
-curl -s http://localhost:8000/metrics | head
-```
-
-### Appeler /predict
-> Adapter le payload à votre schéma `PredictRequest`.
-```bash
-curl -s -X POST http://localhost:8000/predict   -H 'Content-Type: application/json'   -d '{"data":{"features":[0,0,0,0,0,0,0,0,0,0]}}'
-```
-
----
-
-## Monitoring (Prometheus & Grafana)
-
-### Prometheus
-- Target attendu : `http://api:8000/metrics` (state **UP**)
-
-### Grafana
-- Datasource Prometheus provisionnée avec un **UID stable**
-- Dashboard JSON chargé automatiquement au démarrage (provider dashboards)
-
-### Test “boom” (pour forcer 500)
-```bash
-curl -i http://localhost:8000/boom
-```
-Vous devez voir le ratio 5xx monter.
-
----
-
-## Tests & Qualité
-
-### Installer dépendances dev
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
-```
-
-### Lint / format / tests
 ```bash
 ruff format --check .
 ruff check .
 pytest -q
+docker build -t credit-default-api:local .
 ```
 
----
-
-## CI GitHub Actions
-
-Workflow :
+CI GitHub Actions (workflow : `.github/workflows/ci.yml`) exécute :
 - `ruff format --check`
 - `ruff check`
-- `pytest`
+- `pytest -q`
 - `docker build`
 
-Fichier :
-- `.github/workflows/ci.yml`
+---
+
+## Monitoring (Prometheus + Grafana)
+
+- Prometheus scrappe l’API sur `http://api:8000/metrics` (dans Docker) via `monitoring/prometheus/prometheus.yml`
+- Grafana est provisionné automatiquement :
+  - datasource Prometheus : `monitoring/grafana/provisioning/datasources/datasource.yml`
+  - provider dashboards : `monitoring/grafana/provisioning/dashboards/provider.yml`
+  - dashboard JSON : `monitoring/grafana/dashboards/fastapi.json`
+
+Détails : [`docs/MONITORING.md`](docs/MONITORING.md)
 
 ---
 
-## Structure du dépôt
+## Résultats (evidence)
 
+Ajoute tes captures dans `docs/assets/` et référence-les ici (exemples) :
+
+- Dashboard Grafana : `docs/assets/grafana-dashboard.png`
+- Prometheus targets UP : `docs/assets/prometheus-targets.png`
+- MLflow model registry : `docs/assets/mlflow-registry.png`
+- Swagger UI : `docs/assets/swagger.png`
+
+Une fois ajoutées :
+
+```md
+![Grafana](docs/assets/grafana-dashboard.png)
+![Prometheus](docs/assets/prometheus-targets.png)
+![MLflow](docs/assets/mlflow-registry.png)
+![Swagger](docs/assets/swagger.png)
 ```
-.
-├─ api.py
-├─ train.py
-├─ evaluate.py
-├─ predict.py
-├─ requirements.txt
-├─ requirements-dev.txt
-├─ pyproject.toml
-├─ pytest.ini
-├─ Dockerfile
-├─ docker-compose.yml
-├─ docker-compose.monitoring.yml
-├─ monitoring/
-│  ├─ prometheus/
-│  └─ grafana/
-├─ tests/
-│  ├─ conftest.py
-│  ├─ test_api.py
-│  └─ test_api_integration.py
-└─ .github/workflows/ci.yml
-```
 
 ---
 
-## Troubleshooting
+## Documentation
 
-### Prometheus “connection refused” sur `api:8000`
-- Vérifier que Prometheus et `api` partagent le même réseau docker.
-- Vérifier le job/target dans `prometheus.yml`.
-- Vérifier l’endpoint `/metrics`.
-
-### L’API échoue à charger le modèle MLflow
-- Vérifier `MODEL_URI`
-- Vérifier `MLFLOW_TRACKING_URI` (dans docker: `http://mlflow:5000`)
-- Vérifier MinIO (`MLFLOW_S3_ENDPOINT_URL`, `AWS_*`)
-
-### Grafana ne charge pas le dashboard
-- Vérifier provisioning dashboards et volume vers `/var/lib/grafana/dashboards`
-- Vérifier le JSON (datasource UID)
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) : architecture + schéma
+- [`docs/MONITORING.md`](docs/MONITORING.md) : métriques + PromQL + dashboard
+- [`docs/USAGE.md`](docs/USAGE.md) : runbook reproductible (local / docker / debug)
 
 ---
 
-## Roadmap
-- Alerting (Alertmanager) + règles
-- Tests d’intégration en CI via `docker compose` (job dédié)
-- Scan sécurité (Trivy)
-- Publication image (GHCR)
+## Auteur
 
----
-
-### Auteur
-Projet portfolio : **Momo**
+**Mohamed Lamine OULD BOUYA** — Data Engineering / MLOps
