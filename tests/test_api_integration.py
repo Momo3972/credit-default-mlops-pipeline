@@ -1,6 +1,9 @@
 import os
 
+import pytest
 import requests
+
+pytestmark = pytest.mark.integration
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
