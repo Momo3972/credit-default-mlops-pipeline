@@ -1,6 +1,6 @@
 # Credit Default MLOps Pipeline
 
-Pipeline MLOps end-to-end pour la prédiction du défaut de paiement, intégrant :
+Pipeline MLOps pour la prédiction du défaut de paiement intégrant :
 - entraînement et évaluation du modèle
 - MLflow Tracking et Model Registry
 - API FastAPI containerisée (serving et métriques Prometheus)
@@ -39,11 +39,11 @@ Détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 ### Pré-requis
 - Docker + Docker Compose
 - Git
-- (Optionnel) Python 3.12 si tu veux lancer scripts/tests hors Docker
+- (Optionnel) Python 3.12 pour lancer scripts/tests hors Docker
 
 ### 1) Variables d’environnement
 
-Copie le fichier d’exemple (tu peux garder les valeurs par défaut pour un run local) :
+Copie le fichier d’exemple (il est possible de garder les valeurs par défaut pour un run local) :
 
 ```bash
 cp .env.example .env
@@ -164,7 +164,7 @@ Détails : [`docs/MONITORING.md`](docs/MONITORING.md)
 
 ## Résultats (evidence)
 
-Ajoute tes captures dans `docs/assets/` et référence-les ici (exemples) :
+Les capturees ci-dessous, fournies à titre d'exemple, sont disponibles dans `docs/assets/`:
 
 - Dashboard Grafana : `docs/assets/grafana-dashboard.png`
 - Prometheus targets UP : `docs/assets/prometheus-targets.png`
@@ -187,6 +187,7 @@ Une fois ajoutées :
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) : architecture + schéma
 - [`docs/MONITORING.md`](docs/MONITORING.md) : métriques + PromQL + dashboard
 - [`docs/USAGE.md`](docs/USAGE.md) : runbook reproductible (local / docker / debug)
+- [`docs/Demo_Checklist.md`](docs/Demo_Checklist.md) : 100% Reproducible Demo Checklist
 
 ---
 
