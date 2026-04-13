@@ -95,7 +95,10 @@ def main() -> None:
         ["recall_default", "reject_rate"], ascending=[False, True]
     )
 
-    logger.info("\nTop thresholds (recall_default desc, reject_rate asc) :\n%s", results_df.to_string(index=False))
+    logger.info(
+        "\nTop thresholds (recall_default desc, reject_rate asc) :\n%s",
+        results_df.to_string(index=False),
+    )
 
     # ── Log dans MLflow ───────────────────────────────────────────────────────
     with mlflow.start_run(run_name=f"evaluate-{model_uri.replace('/', '-')}"):

@@ -30,7 +30,9 @@ def _load_config() -> dict:
         with open(CONFIG_PATH, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     except Exception as exc:
-        logger.warning("Impossible de lire %s : %s — valeurs par défaut utilisées.", CONFIG_PATH, exc)
+        logger.warning(
+            "Impossible de lire %s : %s — valeurs par défaut utilisées.", CONFIG_PATH, exc
+        )
         return {}
 
 
@@ -50,7 +52,9 @@ EXPECTED_N_FEATURES: int = int(_cfg.get("model", {}).get("params", {}).get("n_fe
 THRESHOLD: float = float(_cfg.get("decision", {}).get("threshold", 0.05))
 GIT_COMMIT: str = os.getenv("GIT_COMMIT", "unknown")
 
-logger.info("MODEL_URI=%s | THRESHOLD=%.3f | N_FEATURES=%d", MODEL_URI, THRESHOLD, EXPECTED_N_FEATURES)
+logger.info(
+    "MODEL_URI=%s | THRESHOLD=%.3f | N_FEATURES=%d", MODEL_URI, THRESHOLD, EXPECTED_N_FEATURES
+)
 
 
 # ── Résolution de la version du modèle ──────────────────────────────────────

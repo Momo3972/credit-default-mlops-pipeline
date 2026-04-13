@@ -78,7 +78,9 @@ def get_candidates(cfg: dict) -> dict[str, Pipeline]:
         )
 
     if not candidates:
-        raise ValueError(f"Type de modèle inconnu : {model_type}. Valeurs valides : logistic_regression, random_forest, gradient_boosting, all")
+        raise ValueError(
+            f"Type de modèle inconnu : {model_type}. Valeurs valides : logistic_regression, random_forest, gradient_boosting, all"
+        )
 
     return candidates
 
@@ -133,7 +135,9 @@ def main() -> None:
     tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(cfg["mlflow"]["experiment_name"])
-    logger.info("MLflow tracking URI: %s | Experiment: %s", tracking_uri, cfg["mlflow"]["experiment_name"])
+    logger.info(
+        "MLflow tracking URI: %s | Experiment: %s", tracking_uri, cfg["mlflow"]["experiment_name"]
+    )
 
     # ── Données ──────────────────────────────────────────────────────────────
     df = pd.read_csv(cfg["data"]["path"])
