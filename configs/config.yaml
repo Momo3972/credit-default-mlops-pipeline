@@ -11,6 +11,7 @@ train:
   random_state: 42
 
 model:
+  # Algorithme principal (logistic_regression | random_forest | gradient_boosting)
   type: logistic_regression
   params:
     C: 1.0
@@ -19,6 +20,9 @@ model:
 mlflow:
   experiment_name: credit-default-train
   model_name: credit-default-model
-  # fallback si MODEL_URI n'est pas fourni en env var
-  model_uri: models:/credit-default-model/Production
+  # Alias MLflow (format @alias recommandé — les stages /Production sont dépréciés depuis MLflow 2.x)
+  model_uri: models:/credit-default-model@production
 
+predict:
+  test_path: data/cs-test.csv
+  output_path: data/outputs/predictions.csv

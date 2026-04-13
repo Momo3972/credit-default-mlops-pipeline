@@ -13,24 +13,46 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Ruff format check
+      # ── Qualité du code ─────────────────────────────────────────────────
+      - name: Ruff — vérification du format
         run: ruff format --check .
 
-      - name: Ruff lint
+      - name: Ruff — lint
         run: ruff check .
 
-      - name: Pytest (unit only)
-        run: pytest -q -m "not integration"
+      # ── Tests unitaires ─────────────────────────────────────────────────
+      - name: Pytest — tests unitaires
+        run: pytest -q -m "not integration" --cov=. --cov-report=xml --cov-report=term-missing
 
+      - name: Upload couverture (Codecov)
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+        continue-on-error: true
+
+      # ── Sécurité ────────────────────────────────────────────────────────
+      - name: pip-audit — scan des dépendances
+        run: pip-audit -r requirements.txt
+
+      - name: Bandit — analyse statique sécurité
+        run: bandit -r api.py train.py evaluate.py predict.py -ll --quiet
+
+      # ── Build Docker ─────────────────────────────────────────────────────
       - name: Docker build
-        run: docker build -t credit-default-api:ci .
+        run: |
+          docker build \
+            --build-arg GIT_COMMIT=${{ github.sha }} \
+            -t credit-default-api:ci \
+            .

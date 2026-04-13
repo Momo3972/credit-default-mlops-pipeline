@@ -1,25 +1,47 @@
-FROM python:3.12-slim
-
-ARG GIT_COMMIT=unknown
-ENV GIT_COMMIT=${GIT_COMMIT}
+# ── Stage 1 : builder ────────────────────────────────────────────────────────
+# Crée un venv isolé avec toutes les dépendances
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# (Optionnel mais clean) : git + build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    git \
+    curl \
  && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /app/requirements.txt
-# requirements-dev.txt est optionnel, mais on le supporte
-COPY requirements-dev.txt /app/requirements-dev.txt
+# Crée le virtual environment dans /venv
+RUN python -m venv /venv
+ENV PATH="/venv/bin:$PATH"
 
-RUN pip install --no-cache-dir -r requirements.txt && \
-    if [ -f /app/requirements-dev.txt ]; then pip install --no-cache-dir -r /app/requirements-dev.txt; fi
+# Installe les dépendances dans le venv (setuptools inclus via pip moderne)
+COPY requirements.txt .
+RUN pip install --no-cache-dir "pip>=24" "setuptools>=69,<71" wheel \
+ && pip install --no-cache-dir -r requirements.txt
 
+
+# ── Stage 2 : runtime ────────────────────────────────────────────────────────
+# Image finale légère — copie uniquement le venv
+FROM python:3.11-slim AS runtime
+
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=${GIT_COMMIT} \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/venv/bin:$PATH" \
+    VIRTUAL_ENV="/venv"
+
+WORKDIR /app
+
+# Copie le venv complet depuis le stage builder
+COPY --from=builder /venv /venv
+
+# Copie le code source (sans les fichiers ignorés par .dockerignore)
 COPY . /app
 
 EXPOSE 8000
 
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Utilisateur non-root pour la sécurité
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

@@ -1,56 +1,56 @@
+import logging
 import os
 
 import mlflow
 import pandas as pd
 import yaml
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+logger = logging.getLogger(__name__)
 
-def load_config(path="configs/config.yaml"):
+
+def load_config(path: str = "configs/config.yaml") -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
 
 
-def main():
+def main() -> None:
     cfg = load_config()
 
-    # --- MLflow tracking (same logic as train.py)
-    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
+    mlflow.set_tracking_uri(tracking_uri)
+    logger.info("MLflow tracking URI: %s", tracking_uri)
 
-    model_name = cfg["mlflow"]["model_name"]
     threshold = float(cfg["decision"]["threshold"])
-
     test_path = cfg["predict"]["test_path"]
     output_path = cfg["predict"]["output_path"]
 
-    # --- Load model from Model Registry (latest version by alias if you want later)
-    # Here we lock to "champion" if present, otherwise you can lock to version number.
-    # If you haven't set alias, use: models:/<name>/2
-    model_uri = f"models:/{model_name}/2"
+    # Charge le modèle depuis le registry via l'alias @production (ou env var MODEL_URI)
+    model_name = cfg["mlflow"]["model_name"]
+    model_uri = os.environ.get(
+        "MODEL_URI",
+        cfg["mlflow"].get("model_uri", f"models:/{model_name}@production"),
+    )
+    logger.info("Chargement du modèle depuis : %s", model_uri)
     model = mlflow.pyfunc.load_model(model_uri)
 
-    # --- Load input
+    # Chargement des données de test
+    logger.info("Chargement des données de test : %s", test_path)
     df = pd.read_csv(test_path)
 
-    # Keep an id column if present, else create one
     if "Id" in df.columns:
         ids = df["Id"].copy()
-        X = df.drop(columns=["SeriousDlqin2yrs"], errors="ignore")
     else:
         ids = pd.Series(range(len(df)), name="Id")
-        X = df.drop(columns=["SeriousDlqin2yrs"], errors="ignore")
 
-    # --- Predict
-    # Depending on how mlflow logs the sklearn pipeline, predict may return:
-    # - probabilities, or
-    # - class labels.
-    # We'll handle both.
+    X = df.drop(columns=["SeriousDlqin2yrs", "Id"], errors="ignore")
+
+    # Prédiction
+    logger.info("Prédiction sur %d lignes...", len(X))
     p = model.predict(X)
-
-    # Convert output to probability if it's class labels
-    # If already float-ish in [0,1], keep it.
     prob = pd.Series(p).astype(float)
 
-    # Decision policy: "refuser trop que prêter à tort" => reject if prob >= threshold
+    # Politique : reject si proba >= seuil
     decision = (prob >= threshold).map({True: "REJECT", False: "ACCEPT"})
 
     out = pd.DataFrame(
@@ -65,8 +65,8 @@ def main():
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     out.to_csv(output_path, index=False)
-    print(f"Saved predictions to {output_path}")
-    print(out.head(10))
+    logger.info("Prédictions sauvegardées : %s", output_path)
+    logger.info("Aperçu :\n%s", out.head(10).to_string())
 
 
 if __name__ == "__main__":

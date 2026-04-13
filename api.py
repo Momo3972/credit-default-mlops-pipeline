@@ -1,3 +1,4 @@
+import logging
 import os
 
 import mlflow
@@ -8,45 +9,56 @@ from mlflow.tracking import MlflowClient
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="Credit Default Scoring API")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+logger = logging.getLogger(__name__)
 
-# Prometheus metrics on /metrics
+app = FastAPI(
+    title="Credit Default Scoring API",
+    description="API de scoring de défaut de crédit — FastAPI + MLflow + Prometheus",
+    version="1.0.0",
+)
+
+# Prometheus metrics exposées sur /metrics
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
-# ---------- Config ----------
+# ── Chargement de la configuration ──────────────────────────────────────────
 CONFIG_PATH = "configs/config.yaml"
 
 
-def load_model_uri() -> str:
-    # 1) ENV > 2) config.yaml > 3) fallback
+def _load_config() -> dict:
+    try:
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except Exception as exc:
+        logger.warning("Impossible de lire %s : %s — valeurs par défaut utilisées.", CONFIG_PATH, exc)
+        return {}
+
+
+_cfg = _load_config()
+
+
+def _load_model_uri() -> str:
+    """Priorité : ENV > config.yaml > fallback hardcodé."""
     env_uri = os.getenv("MODEL_URI")
     if env_uri:
         return env_uri
-
-    try:
-        with open(CONFIG_PATH, encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or {}
-        return cfg.get("mlflow", {}).get("model_uri", "models:/credit-default-model@production")
-    except Exception:
-        return "models:/credit-default-model@production"
+    return _cfg.get("mlflow", {}).get("model_uri", "models:/credit-default-model@production")
 
 
-MODEL_URI = load_model_uri()
+MODEL_URI = _load_model_uri()
+EXPECTED_N_FEATURES: int = int(_cfg.get("model", {}).get("params", {}).get("n_features", 11))
+THRESHOLD: float = float(_cfg.get("decision", {}).get("threshold", 0.05))
+GIT_COMMIT: str = os.getenv("GIT_COMMIT", "unknown")
 
-EXPECTED_N_FEATURES = 11
-THRESHOLD = 0.05
-GIT_COMMIT = os.getenv("GIT_COMMIT", "unknown")
+logger.info("MODEL_URI=%s | THRESHOLD=%.3f | N_FEATURES=%d", MODEL_URI, THRESHOLD, EXPECTED_N_FEATURES)
 
 
+# ── Résolution de la version du modèle ──────────────────────────────────────
 def get_model_version_from_registry(model_uri: str) -> str:
     """
-    Try to get model version from MLflow Model Registry.
-    Returns "unknown" if not retrievable.
-    Supports:
-      - models:/name/Production
-      - models:/name/Staging
-      - models:/name/123
-      - models:/name@alias
+    Résout la version du modèle depuis le MLflow Model Registry.
+    Supporte : models:/name@alias  |  models:/name/123  |  models:/name/Stage
+    Retourne "unknown" si non résolvable.
     """
     try:
         if not model_uri.startswith("models:/"):
@@ -54,7 +66,7 @@ def get_model_version_from_registry(model_uri: str) -> str:
 
         client = MlflowClient()
 
-        # Alias: models:/name@alias
+        # Alias : models:/name@alias
         if "@" in model_uri:
             left, alias = model_uri.split("@", 1)
             name = left.replace("models:/", "").strip("/")
@@ -70,11 +82,9 @@ def get_model_version_from_registry(model_uri: str) -> str:
 
         name, ref = parts[0], parts[1]
 
-        # Direct numeric version
         if ref.isdigit():
             return ref
 
-        # Stage (Production/Staging/...)
         try:
             versions = client.get_latest_versions(name, stages=[ref])
             if versions:
@@ -87,16 +97,22 @@ def get_model_version_from_registry(model_uri: str) -> str:
         return "unknown"
 
 
-# ---------- Load model ----------
+# ── Chargement du modèle ────────────────────────────────────────────────────
 try:
+    logger.info("Chargement du modèle depuis : %s", MODEL_URI)
     model = mlflow.sklearn.load_model(MODEL_URI)
+    logger.info("Modèle chargé avec succès.")
 except Exception as e:
-    raise RuntimeError(f"Failed to load model from {MODEL_URI}: {e}") from e
+    raise RuntimeError(f"Impossible de charger le modèle depuis {MODEL_URI}: {e}") from e
 
 
-# ---------- Schema ----------
+# ── Schémas Pydantic ────────────────────────────────────────────────────────
 class PredictData(BaseModel):
-    features: list[float] = Field(..., description="Ordered feature vector", min_length=1)
+    features: list[float] = Field(
+        ...,
+        description=f"Vecteur de features ordonné ({EXPECTED_N_FEATURES} valeurs attendues)",
+        min_length=1,
+    )
 
 
 class PredictRequest(BaseModel):
@@ -110,14 +126,16 @@ class PredictResponse(BaseModel):
     model_uri: str
 
 
-# ---------- Routes ----------
-@app.get("/health")
+# ── Routes ───────────────────────────────────────────────────────────────────
+@app.get("/health", tags=["Infrastructure"])
 def health():
+    """Statut de l'API et URI du modèle chargé."""
     return {"status": "ok", "model_uri": MODEL_URI}
 
 
-@app.get("/meta")
+@app.get("/meta", tags=["Infrastructure"])
 def meta():
+    """Métadonnées runtime : seuil, features attendues, commit Git, version modèle."""
     return {
         "model_uri": MODEL_URI,
         "threshold": THRESHOLD,
@@ -127,19 +145,26 @@ def meta():
     }
 
 
-@app.get("/boom")
+@app.get("/boom", tags=["Infrastructure"])
 def boom():
+    """Endpoint volontairement en erreur 500 — test d'observabilité."""
     raise HTTPException(status_code=500, detail="boom")
 
 
-@app.post("/predict", response_model=PredictResponse)
+@app.post("/predict", response_model=PredictResponse, tags=["Prédiction"])
 def predict(request: PredictRequest):
+    """
+    Prédit la probabilité de défaut de crédit.
+
+    - **REJECT** si probabilité ≥ seuil
+    - **ACCEPT** sinon
+    """
     x = request.data.features
 
     if len(x) != EXPECTED_N_FEATURES:
         raise HTTPException(
             status_code=422,
-            detail=f"Model expects {EXPECTED_N_FEATURES} features, got {len(x)}",
+            detail=f"Le modèle attend {EXPECTED_N_FEATURES} features, reçu {len(x)}",
         )
 
     proba = float(model.predict_proba([x])[0][1])

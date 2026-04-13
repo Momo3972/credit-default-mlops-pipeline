@@ -29,3 +29,34 @@ mlartifacts/
 
 # Docker
 **/docker-data/
+
+# Éditeurs / IDE
+.vscode/
+.idea/
+*.save
+
+# Tests coverage
+htmlcov/
+.coverage
+coverage.xml
+
+# Données générées (outputs de predict.py — ne pas versionner)
+data/predictions.csv
+data/outputs/
+
+# DVC
+.dvc/cache/
+
+# Windows / WSL
+*:Zone.Identifier
+Thumbs.db
+
+# Documents de travail / spécifications (binaires, pas de valeur pour le repo public)
+*.docx
+*.doc
+*.pptx
+*.xlsx
+
+# Orchestrateur de démo (usage personnel uniquement)
+DEMO_LOCAL.md
+docs/AUDIT_REPORT.md
