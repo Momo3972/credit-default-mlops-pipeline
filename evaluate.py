@@ -116,7 +116,7 @@ def main() -> None:
         mlflow.log_metric("reject_rate", best["reject_rate"])
 
         # Sauvegarde du tableau complet en artefact
-        out_path = "/tmp/threshold_analysis.csv"
+        out_path = "/tmp/threshold_analysis.csv"  # nosec B108
         results_df.to_csv(out_path, index=False)
         mlflow.log_artifact(out_path, artifact_path="evaluation")
 
