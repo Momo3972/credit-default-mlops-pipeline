@@ -436,7 +436,6 @@ Preuves d'exécution disponibles dans [`docs/assets/`](docs/assets/) :
 | [`docs/MONITORING.md`](docs/MONITORING.md) | PromQL, dashboards Grafana, alertes |
 | [`docs/USAGE.md`](docs/USAGE.md) | Runbook pas-à-pas (local, Docker, debug) |
 | [`docs/Demo_Checklist.md`](docs/Demo_Checklist.md) | Checklist de validation 100% reproductible |
-| [`CHANGELOG.md`](CHANGELOG.md) | Historique des versions |
 
 ---
 
