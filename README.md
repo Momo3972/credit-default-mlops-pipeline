@@ -289,7 +289,7 @@ docker compose run --rm api python /app/predict.py
 
 ---
 
-## CI/CD — GitHub Actions
+## CI/CD - GitHub Actions
 
 Le workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) s'exécute sur chaque push/PR :
 
