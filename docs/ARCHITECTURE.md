@@ -23,15 +23,15 @@ flowchart LR
 - Port exposé : `8000`
 - Image : construite depuis `Dockerfile` (multi-stage, Python 3.11, venv isolé)
 - Endpoints :
-  - `GET /health` — statut du service + `model_uri` chargé
-  - `GET /meta` — seuil de décision, nombre de features attendu, commit Git, version modèle
-  - `POST /predict` — probabilité de défaut + décision ACCEPT/REJECT
-  - `GET /metrics` — métriques Prometheus (format texte/plain)
-  - `GET /boom` — erreur 500 volontaire (test observabilité)
+  - `GET /health` - statut du service + `model_uri` chargé
+  - `GET /meta` - seuil de décision, nombre de features attendu, commit Git, version modèle
+  - `POST /predict` - probabilité de défaut + décision ACCEPT/REJECT
+  - `GET /metrics` - métriques Prometheus (format texte/plain)
+  - `GET /boom` - erreur 500 volontaire (test observabilité)
 
 Résolution de `MODEL_URI` (ordre de priorité) :
 1. Variable d’environnement `MODEL_URI`
-2. `configs/config.yaml` → `mlflow.model_uri`
+2. `configs/config.yaml` -> `mlflow.model_uri`
 3. Fallback : `models:/credit-default-model@production`
 
 Le modèle en production est un **Gradient Boosting** (sklearn `GradientBoostingClassifier`) sélectionné après comparaison de 3 algorithmes sur le dataset Give Me Some Credit (150 000 clients) :
@@ -44,7 +44,7 @@ Le modèle en production est un **Gradient Boosting** (sklearn `GradientBoosting
 
 ### 2. MLflow (tracking + registry)
 
-- Image : `infra/mlflow/Dockerfile` — image custom avec `mlflow==2.10.2`, `psycopg2-binary` (backend PostgreSQL) et `boto3` (artifact store MinIO/S3)
+- Image : `infra/mlflow/Dockerfile` - image custom avec `mlflow==2.10.2`, `psycopg2-binary` (backend PostgreSQL) et `boto3` (artifact store MinIO/S3)
 - Port exposé : `5000`
 - Backend store : PostgreSQL (métadonnées des runs, paramètres, métriques)
 - Artifact store : MinIO via protocole S3 (`s3://mlflow/`)
@@ -53,7 +53,7 @@ Le modèle en production est un **Gradient Boosting** (sklearn `GradientBoosting
 ### 3. MinIO (S3-compatible)
 
 - Stocke les artefacts MLflow : modèles sérialisés pickle, fichiers de métadonnées
-- Port API S3 : `9000` — Port console web : `9001`
+- Port API S3 : `9000` - Port console web : `9001`
 - Bucket requis : `mlflow` (à créer manuellement avant le premier entraînement)
 
 ### 4. PostgreSQL
@@ -71,7 +71,7 @@ Le modèle en production est un **Gradient Boosting** (sklearn `GradientBoosting
 ### 6. Grafana
 
 - Datasource Prometheus provisionné automatiquement au démarrage
-- Dashboard **FastAPI / Credit Default — Monitoring** provisionné depuis `monitoring/grafana/dashboards/fastapi.json`
+- Dashboard **FastAPI / Credit Default - Monitoring** provisionné depuis `monitoring/grafana/dashboards/fastapi.json`
 - Port exposé : `3000`
 - Fichiers de provisioning : `monitoring/grafana/provisioning/`
 

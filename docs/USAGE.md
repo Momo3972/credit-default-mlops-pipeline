@@ -12,15 +12,15 @@ docker compose up -d --build
 docker compose ps   # attendre que tous les services soient "healthy" ou "running"
 ```
 
-> La stack comprend 6 services : `postgres`, `minio`, `mlflow`, `api`, `prometheus`, `grafana`.
+> La stack comprend 6 services : `postgres`, `minio`, `mlflow`, `api`, `prometheus`, `grafana`
 
 ---
 
 ## 2. Créer le bucket MinIO (première fois uniquement)
 
-Ouvrir **http://localhost:9001** — login : `minioadmin` / `minioadmin123`
+Ouvrir **http://localhost:9001** - login : `minioadmin` / `minioadmin123`
 
-→ **Buckets** → **Create Bucket** → nom : `mlflow` → **Create**
+→ **Buckets** -> **Create Bucket** -> nom : `mlflow` -> **Create**
 
 ---
 
@@ -29,14 +29,14 @@ Ouvrir **http://localhost:9001** — login : `minioadmin` / `minioadmin123`
 `train.py` entraîne un algorithme à la fois (défini dans `configs/config.yaml`). Lancer 3 runs pour comparer dans MLflow :
 
 ```bash
-# Run 1 — Logistic Regression (défaut)
+# Run 1 - Logistic Regression (défaut)
 docker compose run --rm api python /app/train.py
 
-# Run 2 — Random Forest
+# Run 2 - Random Forest
 sed -i 's/type: logistic_regression/type: random_forest/' configs/config.yaml
 docker compose run --rm -v $(pwd)/configs:/app/configs api python /app/train.py
 
-# Run 3 — Gradient Boosting
+# Run 3 - Gradient Boosting
 sed -i 's/type: random_forest/type: gradient_boosting/' configs/config.yaml
 docker compose run --rm -v $(pwd)/configs:/app/configs api python /app/train.py
 
@@ -58,9 +58,9 @@ Les 3 runs sont visibles et comparables dans MLflow : http://localhost:5000
 
 ## 4. Promouvoir le meilleur modèle en production
 
-Gradient Boosting obtient le meilleur ROC AUC → c'est le modèle à promouvoir.
+Gradient Boosting obtient le meilleur ROC AUC -> c'est le modèle à promouvoir.
 
-**Via MLflow UI** : http://localhost:5000 → **Models** → `credit-default-model` → version Gradient Boosting → **Add** (Aliases) → `production` → **Save aliases**
+**Via MLflow UI** : http://localhost:5000 -> **Models** -> `credit-default-model` -> version Gradient Boosting -> **Add** (Aliases) -> `production` -> **Save aliases**
 
 **Via Makefile** :
 ```bash
@@ -126,12 +126,12 @@ Réponse attendue :
 ## 7. Vérifier le monitoring
 
 ```bash
-# Prometheus — targets
+# Prometheus - targets
 open http://localhost:9090/targets   # "credit-default-api" doit être UP
 
-# Grafana — dashboard
+# Grafana - dashboard
 open http://localhost:3000           # admin / admin1234!
-# Dashboard : "FastAPI / Credit Default — Monitoring"
+# Dashboard : "FastAPI / Credit Default - Monitoring"
 
 # Générer du trafic pour alimenter les métriques
 for i in {1..20}; do
@@ -144,7 +144,7 @@ done
 
 ---
 
-## 8. Qualité du code — vérifications avant push
+## 8. Qualité du code - vérifications avant push
 
 ```bash
 ruff format --check .   # vérification du format

@@ -1,4 +1,4 @@
-# Credit Default MLOps — Checklist de démo reproductible
+# Credit Default MLOps - Checklist de démo reproductible
 
 > **Reproductible à 100 %** sur toute machine disposant de :
 > - Docker + Docker Compose v2
@@ -17,7 +17,7 @@ docker compose version    # >= 2.x
 git --version
 ```
 
-Assurez-vous de pouvoir lancer Docker sans `sudo` dans WSL.
+Assurez-vous de pouvoir lancer Docker sans `sudo` dans WSL
 
 ---
 
@@ -75,30 +75,30 @@ done
 
 ---
 
-## 5. MinIO — créer le bucket `mlflow`
+## 5. MinIO - créer le bucket `mlflow`
 
 Ouvrir : **http://localhost:9001**
 
 - Login : `minio` / `minio123`
-- Cliquer **Create Bucket** → nommer `mlflow` → confirmer
+- Cliquer **Create Bucket** -> nommer `mlflow` -> confirmer
 
-> Cette étape n'est nécessaire qu'au **premier lancement** (ou après `docker compose down -v`).
+> Cette étape n'est nécessaire qu'au **premier lancement** (ou après `docker compose down -v`)
 
 ---
 
 ## 6. Entraîner et comparer les algorithmes
 
-`train.py` entraîne un algorithme à la fois selon `configs/config.yaml`. Lancer 3 runs successifs pour comparer dans MLflow.
+`train.py` entraîne un algorithme à la fois selon `configs/config.yaml`. Lancer 3 runs successifs pour comparer dans MLflow
 
 ```bash
-# Run 1 — Logistic Regression (config par défaut)
+# Run 1 - Logistic Regression (config par défaut)
 docker compose run --rm api python /app/train.py
 
-# Run 2 — Random Forest
+# Run 2 - Random Forest
 sed -i 's/type: logistic_regression/type: random_forest/' configs/config.yaml
 docker compose run --rm -v $(pwd)/configs:/app/configs api python /app/train.py
 
-# Run 3 — Gradient Boosting
+# Run 3 - Gradient Boosting
 sed -i 's/type: random_forest/type: gradient_boosting/' configs/config.yaml
 docker compose run --rm -v $(pwd)/configs:/app/configs api python /app/train.py
 
@@ -118,11 +118,11 @@ Résultats obtenus :
 
 ## 7. Promouvoir le meilleur modèle en production
 
-Gradient Boosting gagne sur ROC AUC (0.8672) → c'est le modèle à promouvoir.
+Gradient Boosting gagne sur ROC AUC (0.8672) → c'est le modèle à promouvoir
 
 **Via MLflow UI** (http://localhost:5000) :
 
-→ **Models** → `credit-default-model` → version Gradient Boosting → **Add** (Aliases) → `production` → **Save aliases**
+→ **Models** -> `credit-default-model` -> version Gradient Boosting -> **Add** (Aliases) -> `production` → **Save aliases**
 
 **Via Makefile** :
 ```bash
@@ -146,7 +146,7 @@ docker compose exec api sh -c 'echo "MODEL_URI=$MODEL_URI"'
 
 ---
 
-## 9. Vérification API (terminal)
+## 9. Vérification API (Terminal)
 
 ```bash
 # Santé du service
@@ -174,8 +174,8 @@ curl -s -X POST http://localhost:8000/predict \
 
 Ouvrir : **http://localhost:8000/docs**
 
-- Tester `GET /health` → `{"status": "ok"}`
-- Tester `GET /meta` → `model_version` = 1
+- Tester `GET /health` -> `{"status": "ok"}`
+- Tester `GET /meta` -> `model_version` = 1
 - Tester `POST /predict` avec le payload :
   ```json
   {"data": {"features": [1, 0.8, 45, 2, 0.5, 3000, 8, 1, 0, 1, 3]}}
@@ -185,18 +185,18 @@ Ouvrir : **http://localhost:8000/docs**
 
 ## 11. Observabilité
 
-### Prometheus — targets UP
+### Prometheus - targets UP
 
 Ouvrir : **http://localhost:9090/targets**
 
 → La cible `credit-default-api` doit être **UP** (state: up)
 
-### Grafana — dashboard
+### Grafana - dashboard
 
 Ouvrir : **http://localhost:3000**
 
 - Login : `admin` / `admin1234!`
-- Dashboard : **FastAPI / Credit Default — Monitoring**
+- Dashboard : **FastAPI / Credit Default - Monitoring**
 - Vérifier les panneaux : RPS par handler, Latence p95, Taux 2xx/4xx/5xx
 
 Générer du trafic pour alimenter les métriques :
@@ -216,9 +216,9 @@ done
 - [ ] Expérience MLflow visible dans http://localhost:5000
 - [ ] Modèle `credit-default-model` enregistré avec alias `@production`
 - [ ] MinIO contient les artefacts dans le bucket `mlflow`
-- [ ] `GET /health` → `{"status": "ok"}`
-- [ ] `GET /meta` → `model_version = 1`, `model_uri` = `...@production`
-- [ ] `POST /predict` → réponse JSON avec `probability` + `decision`
+- [ ] `GET /health` -> `{"status": "ok"}`
+- [ ] `GET /meta` -> `model_version = 1`, `model_uri` = `...@production`
+- [ ] `POST /predict` -> réponse JSON avec `probability` + `decision`
 - [ ] Prometheus target **UP**
 - [ ] Dashboard Grafana alimenté en données
 
@@ -236,5 +236,4 @@ make logs                                  # alias : docker compose logs -f api
 
 ---
 
-*Ce runbook est reproductible en autonomie — terminal + navigateur uniquement.*
-*Adapté pour démo en entretien, portfolio GitHub, ou session de formation.*
+*Ce runbook est reproductible en autonomie - Terminal + navigateur uniquement.*

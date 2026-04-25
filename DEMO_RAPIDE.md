@@ -1,4 +1,4 @@
-# Guide de démo rapide — Credit Default MLOps Pipeline
+# Guide de démo rapide - Credit Default MLOps Pipeline
 
 Ce guide décrit les étapes pour exécuter le pipeline complet en local, de bout en bout.
 
@@ -7,7 +7,7 @@ Ce guide décrit les étapes pour exécuter le pipeline complet en local, de bou
 
 ---
 
-## ÉTAPE 1 — Cloner et configurer
+## ÉTAPE 1 - Cloner et configurer
 
 ```bash
 git clone https://github.com/Momo3972/credit-default-mlops-pipeline.git
@@ -15,11 +15,11 @@ cd credit-default-mlops-pipeline
 cp .env.example .env
 ```
 
-> Les valeurs par défaut du `.env` fonctionnent sans modification pour un run local.
+> Les valeurs par défaut du `.env` fonctionnent sans modification pour un run local
 
 ---
 
-## ÉTAPE 2 — Démarrer l'infrastructure
+## ÉTAPE 2 - Démarrer l'infrastructure
 
 ```bash
 docker compose up -d postgres minio mlflow
@@ -34,21 +34,21 @@ docker compose ps   # attendre que les 3 services soient "healthy"
 
 ---
 
-## ÉTAPE 3 — Créer le bucket MinIO
+## ÉTAPE 3 - Créer le bucket MinIO
 
-Ouvrir **http://localhost:9001** — login : `minio` / `minio123`
+Ouvrir **http://localhost:9001** - login : `minio` / `minio123`
 
-→ **Buckets** → **Create Bucket** → nom : `mlflow` → **Create**
+→ **Buckets** -> **Create Bucket** -> nom : `mlflow` -> **Create**
 
-> Cette étape n'est nécessaire qu'au premier lancement (ou après `docker compose down -v`).
+> Cette étape n'est nécessaire qu'au premier lancement (ou après `docker compose down -v`)
 
 ---
 
-## ÉTAPE 4 — Entraîner et comparer les algorithmes
+## ÉTAPE 4 - Entraîner et comparer les algorithmes
 
-`train.py` entraîne un algorithme à la fois selon `configs/config.yaml`. Lancer 3 runs pour comparer dans MLflow.
+`train.py` entraîne un algorithme à la fois selon `configs/config.yaml`. Lancer 3 runs pour comparer dans MLflow
 
-**Run 1 — Logistic Regression (config par défaut) :**
+**Run 1 - Logistic Regression (config par défaut) :**
 ```bash
 docker compose run --rm api python /app/train.py
 ```
@@ -57,7 +57,7 @@ docker compose run --rm api python /app/train.py
 🏆 Meilleur modèle : logistic_regression (ROC AUC=0.8020)
 ```
 
-**Run 2 — Random Forest :**
+**Run 2 - Random Forest :**
 ```bash
 sed -i 's/type: logistic_regression/type: random_forest/' configs/config.yaml
 docker compose run --rm -v $(pwd)/configs:/app/configs api python /app/train.py
@@ -67,7 +67,7 @@ docker compose run --rm -v $(pwd)/configs:/app/configs api python /app/train.py
 🏆 Meilleur modèle : random_forest (ROC AUC=0.8463)
 ```
 
-**Run 3 — Gradient Boosting :**
+**Run 3 - Gradient Boosting :**
 ```bash
 sed -i 's/type: random_forest/type: gradient_boosting/' configs/config.yaml
 docker compose run --rm -v $(pwd)/configs:/app/configs api python /app/train.py
@@ -94,15 +94,15 @@ Les 3 runs sont comparables dans MLflow : **http://localhost:5000**
 
 ---
 
-## ÉTAPE 5 — Promouvoir le meilleur modèle en production
+## ÉTAPE 5 - Promouvoir le meilleur modèle en production
 
-Gradient Boosting obtient le meilleur ROC AUC → c'est le modèle à promouvoir.
+Gradient Boosting obtient le meilleur ROC AUC -> c'est le modèle à promouvoir
 
 **Via MLflow UI :**
 
 1. Ouvrir **http://localhost:5000**
-2. **Models** → `credit-default-model` → version Gradient Boosting
-3. **Add** (Aliases) → saisir `production` → **Save aliases**
+2. **Models** -> `credit-default-model` -> version Gradient Boosting
+3. **Add** (Aliases) -> saisir `production` -> **Save aliases**
 
 **Via Makefile :**
 ```bash
@@ -111,7 +111,7 @@ make promote
 
 ---
 
-## ÉTAPE 6 — Démarrer la stack complète
+## ÉTAPE 6 - Démarrer la stack complète
 
 ```bash
 docker compose up -d
@@ -127,11 +127,11 @@ docker compose ps   # attendre que tous les services soient opérationnels
 | monitoring-prometheus | 9090      | running        |
 | monitoring-grafana    | 3000      | running        |
 
-> L'API charge le modèle depuis MLflow au démarrage (~80 secondes).
+> L'API charge le modèle depuis MLflow au démarrage (~80 secondes)
 
 ---
 
-## ÉTAPE 7 — Interfaces disponibles
+## ÉTAPE 7 - Interfaces disponibles
 
 | Interface       | URL                        | Identifiants       |
 |-----------------|----------------------------|--------------------|
@@ -143,7 +143,7 @@ docker compose ps   # attendre que tous les services soient opérationnels
 
 ---
 
-## ÉTAPE 8 — Tester l'API
+## ÉTAPE 8 - Tester l'API
 
 ```bash
 # Santé du service
@@ -152,22 +152,22 @@ curl -s http://localhost:8000/health | python3 -m json.tool
 # Métadonnées du modèle
 curl -s http://localhost:8000/meta | python3 -m json.tool
 
-# Prédiction — profil risqué → REJECT
+# Prédiction - profil risqué → REJECT
 curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{"data":{"features":[1,0.8,45,2,0.5,3000,8,1,0,1,3]}}' | python3 -m json.tool
 
-# Prédiction — profil sain → ACCEPT
+# Prédiction - profil sain → ACCEPT
 curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{"data":{"features":[1,0.02,60,0,0.05,10000,2,0,1,0,0]}}' | python3 -m json.tool
 ```
 
-Ou depuis Swagger : **http://localhost:8000/docs** → `POST /predict` → **Try it out**
+Ou depuis Swagger : **http://localhost:8000/docs** -> `POST /predict` -> **Try it out**
 
 ---
 
-## ÉTAPE 9 — Vérifier le monitoring
+## ÉTAPE 9 - Vérifier le monitoring
 
 ```bash
 # Générer du trafic pour alimenter Grafana
@@ -179,12 +179,12 @@ for i in {1..30}; do
 done
 ```
 
-- **Prometheus targets** : http://localhost:9090/targets → `credit-default-api` doit être **UP**
-- **Grafana dashboard** : http://localhost:3000 → *FastAPI / Credit Default — Monitoring*
+- **Prometheus targets** : http://localhost:9090/targets -> `credit-default-api` doit être **UP**
+- **Grafana dashboard** : http://localhost:3000 -> *FastAPI / Credit Default - Monitoring*
 
 ---
 
-## ÉTAPE 10 — Lancer les tests
+## ÉTAPE 10 - Lancer les tests
 
 ```bash
 # Tests unitaires via conteneur éphémère (aucune installation locale requise)
@@ -193,7 +193,7 @@ docker compose run --rm api python -m pytest /app/tests/test_api.py -v
 
 ---
 
-## ÉTAPE 11 — Arrêter la stack
+## ÉTAPE 11 - Arrêter la stack
 
 ```bash
 docker compose down          # arrêt simple (volumes conservés)

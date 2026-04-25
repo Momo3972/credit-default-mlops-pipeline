@@ -14,7 +14,7 @@
 </p>
 
 Pipeline MLOps **production-ready** de scoring de défaut de crédit, couvrant l'intégralité du cycle de vie :
-données → entraînement → tracking → registry → serving API → observabilité → CI/CD.
+données -> entraînement -> tracking -> registry -> serving API -> observabilité -> CI/CD.
 
 ---
 
@@ -22,13 +22,13 @@ données → entraînement → tracking → registry → serving API → observa
 
 Ce projet a pour but de démontrer la mise en œuvre complète d'un pipeline MLOps industriel, de la donnée brute jusqu'au serving en production, en suivant les standards de l'ingénierie logicielle moderne.
 
-**Côté Data Science :** entraîner et comparer plusieurs algorithmes de classification (Régression Logistique, Random Forest, Gradient Boosting) sur le dataset *Give Me Some Credit* (Kaggle), versionner les expériences et promouvoir le meilleur modèle via MLflow Model Registry.
+**Côté Data Science :** entraîner et comparer plusieurs algorithmes de classification (Régression Logistique, Random Forest, Gradient Boosting) sur le dataset *Give Me Some Credit* (Kaggle), versionner les expériences et promouvoir le meilleur modèle via MLflow Model Registry
 
-**Côté ingénierie :** exposer le modèle via une API REST FastAPI documentée (Swagger), containeriser l'ensemble de la stack avec Docker Compose (6 services), instrumenter l'API avec Prometheus et visualiser les métriques en temps réel dans Grafana.
+**Côté ingénierie :** exposer le modèle via une API REST FastAPI documentée (Swagger), containeriser l'ensemble de la stack avec Docker Compose (6 services), instrumenter l'API avec Prometheus et visualiser les métriques en temps réel dans Grafana
 
-**Côté DevOps :** automatiser la qualité du code (ruff), les tests unitaires (pytest + couverture), les scans de sécurité (bandit, pip-audit) et le build Docker via GitHub Actions CI/CD.
+**Côté DevOps :** automatiser la qualité du code (ruff), les tests unitaires (pytest + couverture), les scans de sécurité (bandit, pip-audit) et le build Docker via GitHub Actions CI/CD
 
-L'objectif final est un projet entièrement reproductible, documenté et déployable sur n'importe quelle machine disposant de Docker — adapté à un contexte de **stage / alternance en Data Engineering ou MLOps**.
+L'objectif final est un projet entièrement reproductible, documenté et déployable sur n'importe quelle machine disposant de Docker.
 
 ---
 
@@ -95,7 +95,7 @@ L'objectif final est un projet entièrement reproductible, documenté et déploy
 
 - Docker Desktop (avec Docker Compose v2)
 - Git
-- Python 3.11+ *(optionnel — uniquement pour développement local hors Docker)*
+- Python 3.11+ *(optionnel - uniquement pour développement local hors Docker)*
 
 ### 1. Cloner le repo
 
@@ -121,21 +121,21 @@ docker compose ps   # attendre que les 3 services soient "healthy"
 ### 4. Créer le bucket MinIO
 
 Ouvrir http://localhost:9001 (login : `minio` / `minio123`)  
-→ **Buckets** → **Create Bucket** → nom : `mlflow` → **Create**
+-> **Buckets** -> **Create Bucket** -> nom : `mlflow` -> **Create**
 
 ### 5. Entraîner et comparer les algorithmes
 
-`train.py` entraîne l'algorithme défini dans `configs/config.yaml`. Pour comparer plusieurs algorithmes, on exécute `train.py` une fois par algorithme en changeant la config — chaque exécution crée un run indépendant dans MLflow.
+`train.py` entraîne l'algorithme défini dans `configs/config.yaml`. Pour comparer plusieurs algorithmes, on exécute `train.py` une fois par algorithme en changeant la config - chaque exécution crée un run indépendant dans MLflow.
 
 ```bash
-# Run 1 — Régression Logistique (config par défaut)
+# Run 1 - Régression Logistique (config par défaut)
 docker compose run --rm api python /app/train.py
 
-# Run 2 — Random Forest
+# Run 2 - Random Forest
 sed -i 's/type: logistic_regression/type: random_forest/' configs/config.yaml
 docker compose run --rm -v $(pwd)/configs:/app/configs api python /app/train.py
 
-# Run 3 — Gradient Boosting
+# Run 3 - Gradient Boosting
 sed -i 's/type: random_forest/type: gradient_boosting/' configs/config.yaml
 docker compose run --rm -v $(pwd)/configs:/app/configs api python /app/train.py
 
@@ -151,14 +151,14 @@ Résultats obtenus sur le dataset Give Me Some Credit (150 000 clients) :
 | Random Forest | 0.8463 | 0.8075 | 0.2837 |
 | Logistic Regression | 0.8020 | 1.0000 | 0.1254 |
 
-Les 3 runs sont visibles et comparables dans l'UI MLflow (http://localhost:5000).
+Les 3 runs sont visibles et comparables dans l'UI MLflow (http://localhost:5000)
 
 ### 6. Promouvoir le meilleur modèle en production
 
-Gradient Boosting obtient le meilleur ROC AUC (0.8672) — c'est le modèle à promouvoir.
+Gradient Boosting obtient le meilleur ROC AUC (0.8672) - c'est le modèle à promouvoir
 
 Dans l'UI MLflow (http://localhost:5000) :  
-→ **Models** → `credit-default-model` → sélectionner la version Gradient Boosting → **Add/Edit Aliases** → `production` → **Save**
+-> **Models** -> `credit-default-model` -> sélectionner la version Gradient Boosting -> **Add/Edit Aliases** -> `production` -> **Save**
 
 Ou via Makefile :
 ```bash
@@ -196,14 +196,14 @@ curl http://localhost:8000/meta
 
 ---
 
-## API — Référence
+## API - Référence
 
 ### `POST /predict`
 
 Prédit la probabilité de défaut de crédit pour un client.
 
-**Dataset source :** [Give Me Some Credit — Kaggle](https://www.kaggle.com/c/GiveMeSomeCredit)  
-150 000 clients bancaires, 11 features, cible : `SeriousDlqin2yrs` (défaut dans les 90 jours).
+**Dataset source :** [Give Me Some Credit - Kaggle](https://www.kaggle.com/c/GiveMeSomeCredit)  
+150 000 clients bancaires, 11 features, cible : `SeriousDlqin2yrs` (défaut dans les 90 jours)
 
 **Features (ordre obligatoire) :**
 
@@ -240,18 +240,18 @@ Prédit la probabilité de défaut de crédit pour un client.
 }
 ```
 
-> **Seuil de décision :** `0.05` (conservateur — maximise le recall pour ne pas manquer de défauts).  
-> `REJECT` si `probability ≥ threshold`, `ACCEPT` sinon.
+> **Seuil de décision :** `0.05` (conservateur - maximise le recall pour ne pas manquer de défauts) 
+> `REJECT` si `probability ≥ threshold`, `ACCEPT` sinon
 
 **Exemples curl :**
 
 ```bash
-# Profil risqué → REJECT
+# Profil risqué -> REJECT
 curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{"data":{"features":[1,0.8,45,2,0.5,3000,8,1,0,1,3]}}' | python3 -m json.tool
 
-# Profil sain → ACCEPT (si probability < 0.05)
+# Profil sain -> ACCEPT (si probability < 0.05)
 curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{"data":{"features":[1,0.02,60,0,0.05,10000,2,0,1,0,0]}}' | python3 -m json.tool
@@ -263,7 +263,7 @@ curl -s http://localhost:8000/meta | python3 -m json.tool
 
 ---
 
-## Entraînement — Multi-algorithmes
+## Entraînement - Multi-algorithmes
 
 `train.py` compare automatiquement plusieurs algorithmes et enregistre le meilleur par ROC AUC :
 
@@ -274,7 +274,7 @@ curl -s http://localhost:8000/meta | python3 -m json.tool
 | `GradientBoostingClassifier` | `model.type: gradient_boosting` |
 | Tous (comparaison) | `model.type: all` |
 
-Pipeline sklearn : `SimpleImputer(median)` → `StandardScaler` → `Classifier(class_weight="balanced")`
+Pipeline sklearn : `SimpleImputer(median)` -> `StandardScaler` -> `Classifier(class_weight="balanced")`
 
 ```bash
 # Entraîner (depuis l'host via Docker)
@@ -294,7 +294,7 @@ docker compose run --rm api python /app/predict.py
 Le workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) s'exécute sur chaque push/PR :
 
 ```
-Push → Checkout → Python 3.11 setup
+Push -> Checkout -> Python 3.11 setup
          │
          ├── ruff format --check    (style)
          ├── ruff check             (lint)
@@ -314,7 +314,7 @@ Scrape l'endpoint `GET /metrics` toutes les 5 secondes.
 Config : [`monitoring/prometheus/prometheus.yml`](monitoring/prometheus/prometheus.yml)
 
 ### Grafana
-Dashboard **FastAPI / Credit Default — Monitoring** auto-provisionné :
+Dashboard **FastAPI / Credit Default - Monitoring** auto-provisionné :
 
 | Panel | Métrique |
 |---|---|
@@ -407,23 +407,23 @@ Preuves d'exécution disponibles dans [`docs/assets/`](docs/assets/) :
 
 | ![CI/CD](docs/assets/ci-pipeline.png) | ![Docker](docs/assets/docker-containers.png) |
 |---|---|
-| **CI/CD** — GitHub Actions : Tests &amp; Qualité + Build Docker | **Docker** — 6 services opérationnels |
+| **CI/CD** - GitHub Actions : Tests &amp; Qualité + Build Docker | **Docker** - 6 services opérationnels |
 
 | ![MLflow Experiments](docs/assets/mlflow-experiments.png) | ![MLflow Run](docs/assets/mlflow-run-detail.png) |
 |---|---|
-| **MLflow** — historique des runs (3 algorithmes comparés) | **MLflow** — run détaillé (paramètres + métriques) |
+| **MLflow** - historique des runs (3 algorithmes comparés) | **MLflow** - run détaillé (paramètres + métriques) |
 
 | ![MLflow Registry](docs/assets/mlflow-registry.png) | ![MinIO](docs/assets/minio-bucket.png) |
 |---|---|
-| **MLflow Registry** — modèle `@production` assigné | **MinIO** — artefacts stockés (bucket `mlflow`) |
+| **MLflow Registry** - modèle `@production` assigné | **MinIO** - artefacts stockés (bucket `mlflow`) |
 
 | ![Swagger](docs/assets/swagger.png) | ![Swagger Predict](docs/assets/swagger-predict.png) |
 |---|---|
-| **Swagger UI** — API auto-documentée | **Swagger** — réponse `POST /predict` en direct |
+| **Swagger UI** - API auto-documentée | **Swagger** - réponse `POST /predict` en direct |
 
 | ![Prometheus](docs/assets/prometheus-targets.png) | ![Grafana](docs/assets/grafana-dashboard.png) |
 |---|---|
-| **Prometheus** — target `credit-default-api` UP | **Grafana** — métriques temps réel (RPS, latence, erreurs) |
+| **Prometheus** - target `credit-default-api` UP | **Grafana** - métriques temps réel (RPS, latence, erreurs) |
 
 ---
 
@@ -431,7 +431,7 @@ Preuves d'exécution disponibles dans [`docs/assets/`](docs/assets/) :
 
 | Document | Contenu |
 |---|---|
-| [`DEMO_RAPIDE.md`](DEMO_RAPIDE.md) | Guide de démo complet — du clone au serving en production |
+| [`DEMO_RAPIDE.md`](DEMO_RAPIDE.md) | Guide de démo complet - du clone au serving en production |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Diagramme Mermaid, flux de données, choix techniques |
 | [`docs/MONITORING.md`](docs/MONITORING.md) | PromQL, dashboards Grafana, alertes |
 | [`docs/USAGE.md`](docs/USAGE.md) | Runbook pas-à-pas (local, Docker, debug) |
@@ -443,5 +443,5 @@ Preuves d'exécution disponibles dans [`docs/assets/`](docs/assets/) :
 ## Auteur
 
 **Mohamed Lamine OULD BOUYA**  
-Master Data Engineering / MLOps — Recherche de stage / alternance en France  
-[GitHub](https://github.com/Momo3972) · [LinkedIn](https://www.linkedin.com/in/mohamedlamineouldbouya)
+Data Engineering / MLOps
+[GitHub](https://github.com/Momo3972)
